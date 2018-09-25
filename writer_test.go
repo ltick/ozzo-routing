@@ -9,22 +9,22 @@ import (
 
 func TestDefaultDataWriter(t *testing.T) {
 	res := httptest.NewRecorder()
-	err := DefaultDataWriter.Write(res, "abc")
+	_, err := DefaultDataWriter.Write(res, "abc")
 	assert.Nil(t, err)
 	assert.Equal(t, "abc", res.Body.String())
 
 	res = httptest.NewRecorder()
-	err = DefaultDataWriter.Write(res, []byte("abc"))
+	_, err = DefaultDataWriter.Write(res, []byte("abc"))
 	assert.Nil(t, err)
 	assert.Equal(t, "abc", res.Body.String())
 
 	res = httptest.NewRecorder()
-	err = DefaultDataWriter.Write(res, 123)
+	_, err = DefaultDataWriter.Write(res, 123)
 	assert.Nil(t, err)
 	assert.Equal(t, "123", res.Body.String())
 
 	res = httptest.NewRecorder()
-	err = DefaultDataWriter.Write(res, nil)
+	_, err = DefaultDataWriter.Write(res, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, "", res.Body.String())
 

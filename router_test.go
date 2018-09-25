@@ -14,8 +14,8 @@ import (
 func TestRouterNotFound(t *testing.T) {
 	r := New(context.Background())
 	h := func(c *Context) error {
-		fmt.Fprint(c.Response, "ok")
-		return  nil
+		fmt.Fprint(c.ResponseWriter, "ok")
+		return nil
 	}
 	r.Get("/users", h)
 	r.Post("/users", h)
@@ -107,7 +107,7 @@ func TestTimeout(t *testing.T) {
 	r := New(context.Background())
 	h1 := func(c *Context) error {
 		time.Sleep(2 * time.Second)
-		return  nil
+		return nil
 	}
 	r.Timeout(1 * time.Second)
 	r.add("GET", "/", []Handler{h1})
@@ -122,10 +122,10 @@ func TestCustomTimeout(t *testing.T) {
 	r := New(context.Background())
 	h1 := func(c *Context) error {
 		time.Sleep(2 * time.Second)
-		return  nil
+		return nil
 	}
 	r.Timeout(1*time.Second, func(c *Context) error {
-		return  NewHTTPError(http.StatusRequestTimeout, "Custom Request Timeout")
+		return NewHTTPError(http.StatusRequestTimeout, "Custom Request Timeout")
 	})
 	r.add("GET", "/", []Handler{h1})
 	res := httptest.NewRecorder()
@@ -141,34 +141,34 @@ func TestCombinedTimeout(t *testing.T) {
 	h1 := func(c *Context) error {
 		time.Sleep(2 * time.Second)
 		select {
-		case <-ctx.Done():
-			fmt.Println(ctx.Err())
-			switch ctx.Err() {
+		case <-c.Context.Done():
+			fmt.Println(c.Context.Err())
+			switch c.Context.Err() {
 			case context.DeadlineExceeded:
-				return  NewHTTPError(http.StatusRequestTimeout)
+				return NewHTTPError(http.StatusRequestTimeout)
 			case context.Canceled:
-				return  nil
+				return nil
 			}
 		default:
 			c.Write("handler1 Done!")
 		}
 
-		return  nil
+		return nil
 	}
 	h2 := func(c *Context) error {
 		time.Sleep(2 * time.Second)
 		select {
-		case <-ctx.Done():
-			switch ctx.Err() {
+		case <-c.Context.Done():
+			switch c.Context.Err() {
 			case context.DeadlineExceeded:
-				return  NewHTTPError(http.StatusRequestTimeout)
+				return NewHTTPError(http.StatusRequestTimeout)
 			case context.Canceled:
-				return  nil
+				return nil
 			}
 		default:
 			c.Write("handler2 Done!")
 		}
-		return  nil
+		return nil
 	}
 	r.Timeout(3 * time.Second)
 	r.add("GET", "/", []Handler{h1, h2})
@@ -184,7 +184,7 @@ func TestNoTimeout(t *testing.T) {
 	h1 := func(c *Context) error {
 		time.Sleep(1 * time.Second)
 		c.Write("handler Done!")
-		return  nil
+		return nil
 	}
 	r.Timeout(2 * time.Second)
 	r.add("GET", "/", []Handler{h1})
@@ -198,12 +198,12 @@ func TestNoTimeout(t *testing.T) {
 func TestRouterHandleError(t *testing.T) {
 	r := New(context.Background())
 	res := httptest.NewRecorder()
-	c := &Context{Response: res}
+	c := &Context{ResponseWriter: res}
 	r.handleError(c, errors.New("abc"))
 	assert.Equal(t, http.StatusInternalServerError, res.Code)
 
 	res = httptest.NewRecorder()
-	c = &Context{Response: res}
+	c = &Context{ResponseWriter: res}
 	r.handleError(c, NewHTTPError(http.StatusNotFound))
 	assert.Equal(t, http.StatusNotFound, res.Code)
 }
@@ -214,7 +214,7 @@ func TestHTTPHandler(t *testing.T) {
 	c := NewContext(res, req)
 
 	h1 := HTTPHandlerFunc(http.NotFound)
-	_, err := h1(context.Background(), c)
+	err := h1(c)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusNotFound, res.Code)
 
@@ -222,7 +222,7 @@ func TestHTTPHandler(t *testing.T) {
 	req, _ = http.NewRequest("GET", "/users/", nil)
 	c = NewContext(res, req)
 	h2 := HTTPHandler(http.NotFoundHandler())
-	_, err = h2(context.Background(), c)
+	err = h2(c)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusNotFound, res.Code)
 }

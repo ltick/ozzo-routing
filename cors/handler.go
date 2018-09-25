@@ -74,11 +74,11 @@ func Handler(opts Options) routing.Handler {
 				return  nil
 			}
 			headers := c.Request.Header.Get(headerRequestHeaders)
-			opts.setPreflightHeaders(origin, method, headers, c.Response.Header())
+			opts.setPreflightHeaders(origin, method, headers, c.ResponseWriter.Header())
 			c.Abort()
 			return  nil
 		}
-		opts.setActualHeaders(origin, c.Response.Header())
+		opts.setActualHeaders(origin, c.ResponseWriter.Header())
 		return  nil
 	}
 }

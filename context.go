@@ -13,7 +13,7 @@ import (
 type Context struct {
 	context.Context
 	Request  *http.Request       // the current request
-	Response http.ResponseWriter // the response writer
+	ResponseWriter http.ResponseWriter // the response writer
 	router   *Router
 	pnames   []string               // list of route parameter names
 	pvalues  []string               // list of parameter values corresponding to pnames
@@ -201,19 +201,19 @@ func (c *Context) Read(data interface{}) error {
 // The method calls the data writer set via SetDataWriter() to do the actual writing.
 // By default, the DefaultDataWriter will be used.
 func (c *Context) Write(data interface{}) error {
-	_, err := c.writer.Write(c.Response, data)
+	_, err := c.writer.Write(c.ResponseWriter, data)
 	return err
 }
 
 // SetDataWriter sets the data writer that will be used by Write().
 func (c *Context) SetDataWriter(writer DataWriter) {
 	c.writer = writer
-	writer.SetHeader(c.Response)
+	writer.SetHeader(c.ResponseWriter)
 }
 
 // init sets the request and response of the context and resets all other properties.
-func (c *Context) init(response http.ResponseWriter, request *http.Request) {
-	c.Response = response
+func (c *Context) init(responseWriter http.ResponseWriter, request *http.Request) {
+	c.ResponseWriter = responseWriter
 	c.Request = request
 	c.data = nil
 	c.index = -1

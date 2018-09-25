@@ -184,9 +184,9 @@ func (r *Router) Find(method, path string) (handlers []Handler, params map[strin
 // handleError is the error handler for handling any unhandled errors.
 func (r *Router) handleError(c *Context, err error) {
 	if httpError, ok := err.(HTTPError); ok {
-		http.Error(c.Response, httpError.Error(), httpError.StatusCode())
+		http.Error(c.ResponseWriter, httpError.Error(), httpError.StatusCode())
 	} else {
-		http.Error(c.Response, err.Error(), http.StatusInternalServerError)
+		http.Error(c.ResponseWriter, err.Error(), http.StatusInternalServerError)
 	}
 }
 
@@ -271,9 +271,9 @@ func MethodNotAllowedHandler(c *Context) error {
 		i++
 	}
 	sort.Strings(ms)
-	c.Response.Header().Set("Allow", strings.Join(ms, ", "))
+	c.ResponseWriter.Header().Set("Allow", strings.Join(ms, ", "))
 	if c.Request.Method != "OPTIONS" {
-		c.Response.WriteHeader(http.StatusMethodNotAllowed)
+		c.ResponseWriter.WriteHeader(http.StatusMethodNotAllowed)
 	}
 	c.Abort()
 	return nil
@@ -282,7 +282,7 @@ func MethodNotAllowedHandler(c *Context) error {
 // HTTPHandlerFunc adapts a http.HandlerFunc into a routing.Handler.
 func HTTPHandlerFunc(h http.HandlerFunc) Handler {
 	return func(c *Context) error {
-		h(c.Response, c.Request)
+		h(c.ResponseWriter, c.Request)
 		return nil
 	}
 }
@@ -290,7 +290,7 @@ func HTTPHandlerFunc(h http.HandlerFunc) Handler {
 // HTTPHandler adapts a http.Handler into a routing.Handler.
 func HTTPHandler(h http.Handler) Handler {
 	return func(c *Context) error {
-		h.ServeHTTP(c.Response, c.Request)
+		h.ServeHTTP(c.ResponseWriter, c.Request)
 		return nil
 	}
 }

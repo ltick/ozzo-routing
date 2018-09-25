@@ -42,7 +42,7 @@ func Remover(status int) routing.Handler {
 			if c.Request.URL.Fragment != "" {
 				urlStr = urlStr + "#" + c.Request.URL.Fragment
 			}
-			http.Redirect(c.Response, c.Request, urlStr, status)
+			http.Redirect(c.ResponseWriter, c.Request, urlStr, status)
 			c.Abort()
 		}
 		return  nil

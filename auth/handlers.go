@@ -68,7 +68,7 @@ func Basic(fn BasicAuthFunc, realm ...string) routing.Handler {
 			c.Set(User, identity)
 			return nil
 		}
-		c.Response.Header().Set("WWW-Authenticate", `Basic realm="`+name+`"`)
+		c.ResponseWriter.Header().Set("WWW-Authenticate", `Basic realm="`+name+`"`)
 		return routing.NewHTTPError(http.StatusUnauthorized, e.Error())
 	}
 }
@@ -128,7 +128,7 @@ func Bearer(fn TokenAuthFunc, realm ...string) routing.Handler {
 			c.Set(User, identity)
 			return nil
 		}
-		c.Response.Header().Set("WWW-Authenticate", `Bearer realm="`+name+`"`)
+		c.ResponseWriter.Header().Set("WWW-Authenticate", `Bearer realm="`+name+`"`)
 		return routing.NewHTTPError(http.StatusUnauthorized, e.Error())
 	}
 }
@@ -285,7 +285,7 @@ func JWT(verificationKey string, options ...JWTOptions) routing.Handler {
 			message = err.Error()
 		}
 
-		c.Response.Header().Set("WWW-Authenticate", `Bearer realm="`+opt.Realm+`"`)
+		c.ResponseWriter.Header().Set("WWW-Authenticate", `Bearer realm="`+opt.Realm+`"`)
 		if message != "" {
 			return routing.NewHTTPError(http.StatusUnauthorized, message)
 		}

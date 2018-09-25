@@ -113,8 +113,8 @@ func Server(pathMap PathMap, opts ...ServerOptions) routing.Handler {
 			return  serveFile(c, dir, filepath.Join(path, options.IndexFile))
 		}
 
-		c.Response.Header().Del("Content-Type")
-		http.ServeContent(c.Response, c.Request, path, fstat.ModTime(), file)
+		c.ResponseWriter.Header().Del("Content-Type")
+		http.ServeContent(c.ResponseWriter, c.Request, path, fstat.ModTime(), file)
 		return  nil
 	}
 }
@@ -131,8 +131,8 @@ func serveFile(c *routing.Context, dir http.Dir, path string) error {
 	} else if fstat.IsDir() {
 		return routing.NewHTTPError(http.StatusNotFound)
 	}
-	c.Response.Header().Del("Content-Type")
-	http.ServeContent(c.Response, c.Request, path, fstat.ModTime(), file)
+	c.ResponseWriter.Header().Del("Content-Type")
+	http.ServeContent(c.ResponseWriter, c.Request, path, fstat.ModTime(), file)
 	return nil
 }
 
@@ -159,8 +159,8 @@ func Content(path string) routing.Handler {
 		} else if fstat.IsDir() {
 			return  routing.NewHTTPError(http.StatusNotFound)
 		}
-		c.Response.Header().Del("Content-Type")
-		http.ServeContent(c.Response, c.Request, path, fstat.ModTime(), file)
+		c.ResponseWriter.Header().Del("Content-Type")
+		http.ServeContent(c.ResponseWriter, c.Request, path, fstat.ModTime(), file)
 		return  nil
 	}
 }

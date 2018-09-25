@@ -24,7 +24,7 @@ func newMockStore() *mockStore {
 
 func (s *mockStore) Add(key string, data interface{}) int {
 	for _, handler := range data.([]Handler) {
-		handler(nil, nil)
+		handler(nil)
 	}
 	return s.store.Add(key, data)
 }
@@ -70,9 +70,9 @@ func TestRouteURL(t *testing.T) {
 }
 
 func newHandler(tag string, buf *bytes.Buffer) Handler {
-	return func(context.Context, *Context) (context.Context, error) {
+	return func(*Context) error {
 		fmt.Fprintf(buf, tag)
-		return nil, nil
+		return nil
 	}
 }
 
