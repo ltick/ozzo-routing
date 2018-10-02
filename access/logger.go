@@ -8,7 +8,6 @@ package access
 import (
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/ltick/tick-routing"
@@ -73,7 +72,7 @@ func CustomLogger(loggerFunc LogWriterFunc) routing.Handler {
 //     r.Use(access.Logger(log.Printf))
 func Logger(log LogFunc) routing.Handler {
 	var logger = func(c *routing.Context, rw *LogResponseWriter, elapsed float64) {
-		clientIP := GetClientIP(c.Request)
+		clientIP := c.GetClientIP()
 		requestLine := fmt.Sprintf("%s %s %s", c.Request.Method, c.Request.URL.String(), c.Request.Proto)
 		log(`[%s] [%.3fms] %s %d %d`, clientIP, elapsed, requestLine, rw.Status, rw.BytesWritten)
 	}
@@ -96,18 +95,4 @@ func (r *LogResponseWriter) Write(p []byte) (int, error) {
 func (r *LogResponseWriter) WriteHeader(status int) {
 	r.Status = status
 	r.ResponseWriter.WriteHeader(status)
-}
-
-func GetClientIP(req *http.Request) string {
-	ip := req.Header.Get("X-Real-IP")
-	if ip == "" {
-		ip = req.Header.Get("X-Forwarded-For")
-		if ip == "" {
-			ip = req.RemoteAddr
-		}
-	}
-	if colon := strings.LastIndex(ip, ":"); colon != -1 {
-		ip = ip[:colon]
-	}
-	return ip
 }

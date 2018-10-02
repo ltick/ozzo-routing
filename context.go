@@ -7,20 +7,21 @@ package routing
 import (
 	"context"
 	"net/http"
+	"strings"
 )
 
 // Context represents the contextual data and environment while processing an incoming HTTP request.
 type Context struct {
 	context.Context
-	Request  *http.Request       // the current request
+	Request        *http.Request       // the current request
 	ResponseWriter http.ResponseWriter // the response writer
-	router   *Router
-	pnames   []string               // list of route parameter names
-	pvalues  []string               // list of parameter values corresponding to pnames
-	data     map[string]interface{} // data items managed by Get and Set
-	index    int                    // the index of the currently executing handler in handlers
-	handlers []Handler              // the handlers associated with the current route
-	writer   DataWriter
+	router         *Router
+	pnames         []string               // list of route parameter names
+	pvalues        []string               // list of parameter values corresponding to pnames
+	data           map[string]interface{} // data items managed by Get and Set
+	index          int                    // the index of the currently executing handler in handlers
+	handlers       []Handler              // the handlers associated with the current route
+	writer         DataWriter
 
 	CancelFunc context.CancelFunc
 }
@@ -209,6 +210,33 @@ func (c *Context) Write(data interface{}) error {
 func (c *Context) SetDataWriter(writer DataWriter) {
 	c.writer = writer
 	writer.SetHeader(c.ResponseWriter)
+}
+
+func (c *Context) GetClientIP() string {
+	ip := c.GetClientRealIP()
+	if ip == "" {
+		ip = c.GetClientRemoteIP()
+	}
+	return ip
+}
+
+func (c *Context) GetClientRealIP() string {
+	ip := c.Request.Header.Get("X-Real-IP")
+	if ip == "" {
+		ip = c.Request.Header.Get("X-Forwarded-For")
+	}
+	if colon := strings.LastIndex(ip, ":"); colon != -1 {
+		ip = ip[:colon]
+	}
+	return ip
+}
+
+func (c *Context) GetClientRemoteIP() string {
+	ip := c.Request.RemoteAddr
+	if colon := strings.LastIndex(ip, ":"); colon != -1 {
+		ip = ip[:colon]
+	}
+	return ip
 }
 
 // init sets the request and response of the context and resets all other properties.

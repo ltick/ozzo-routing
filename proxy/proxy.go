@@ -78,12 +78,12 @@ func (p *Proxy) MatchProxy(r *http.Request) bool {
 //     r.Use(access.Proxy(proxys))
 func ProxyHandler(proxys []*Proxy) routing.Handler {
 	return func(c *routing.Context) error {
-		for _, proxy := range proxys {
-			match  := proxy.MatchProxy(c.Request)
+		for _, p := range proxys {
+			match  := p.MatchProxy(c.Request)
 			if match {
 				director := func(req *http.Request) {
-					req.URL = proxy.UpstreamURL
-					req.Header = *proxy.UpstreamHeader
+					req.URL = p.UpstreamURL
+					req.Header = *p.UpstreamHeader
 				}
 				proxy := &httputil.ReverseProxy{Director: director}
 				proxy.ServeHTTP(c.ResponseWriter, c.Request)
