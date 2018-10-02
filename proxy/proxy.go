@@ -15,89 +15,75 @@ import (
 	"github.com/ltick/tick-routing"
 )
 
+var (
+	errMatchProxy = "tick-routing: match proxy error"
+)
+
 type Proxy struct {
-	Host     string
-	URL    string
-	Upstream string
+	MethodRule     string
+	HostRule       string
+	UriRule        string
+	UpstreamURL    *url.URL
+	UpstreamHeader *http.Header
 }
 
-func (p *Proxy) FindStringSubmatchMap(s string) map[string]string {
-	captures := make(map[string]string)
-	r := regexp.MustCompile(p.URL)
-	match := r.FindStringSubmatch(s)
-	if match == nil {
-		return captures
-	}
-	for i, name := range r.SubexpNames() {
-		if i == 0 || name == "" {
-			continue
-		}
-		captures[name] = match[i]
-	}
-	return captures
-}
-
-func (p *Proxy) MatchProxy(r *http.Request) (*url.URL, error) {
+func (p *Proxy) MatchProxy(r *http.Request) bool {
+	// Host
 	host := r.Host
 	if host == "" {
 		host = r.URL.Host
 	}
-	RequestURL := host + r.RequestURI
-	HitRule := p.FindStringSubmatchMap(RequestURL)
-	if len(HitRule) != 0 {
-		//命中
-		upstreamURL, err := url.Parse(p.Upstream)
-		if err != nil {
-			return nil, err
+	var hostMatch, methodMatch, uriMatch bool
+	if strings.Compare(host, p.HostRule) == 0 {
+		hostMatch = true
+	} else if regexp.MustCompile(p.HostRule).Match([]byte(host)) {
+		hostMatch = true
+	}
+	if hostMatch {
+		// Method
+		if strings.Compare(r.Method, p.MethodRule) == 0 {
+			methodMatch = true
+		} else if regexp.MustCompile(p.MethodRule).Match([]byte(r.Method)) {
+			methodMatch = true
 		}
-		UpstreamRequestURI := "/"
-		//拼接配置文件指定中的uri，$符号分割
-		pathArr := strings.Split(strings.TrimLeft(upstreamURL.Path, "/"), "$")
-		for _, path := range pathArr {
-			if _, ok := HitRule[path]; ok {
-				UpstreamRequestURI += strings.TrimLeft(HitRule[path], "/") + "/"
+		if methodMatch {
+			// Uri
+			if strings.Compare(r.URL.RequestURI(), p.UriRule) == 0 {
+				uriMatch = true
+			} else if regexp.MustCompile(p.UriRule).Match([]byte(r.URL.RequestURI())) {
+				uriMatch = true
+			}
+			if uriMatch {
+				return true
 			}
 		}
-		Upstream := upstreamURL.Scheme + "://" + upstreamURL.Host + strings.TrimRight(UpstreamRequestURI, "/")
-		UpstreamURL, err := url.Parse(Upstream)
-		if err != nil {
-			return nil, err
-		}
-		return UpstreamURL, nil
 	}
-	return nil, nil
+	return false
 }
 
-// Proxy returns a handler that calls the Proxy passed to it for every request.
-// The LogWriterFunc is provided with the http.Request and LogResponseWriter objects for the
-// request, as well as the elapsed time since the request first came through the middleware.
-// LogWriterFunc can then do whatever logging it needs to do.
+// ProxyHandler returns a handler that proxy config for every request.
+// all request will pass through is match rule, if matched it will proxy request to upstream address.
 //
 //     import (
 //         "log"
 //         "github.com/ltick/tick-routing"
-//         "github.com/ltick/tick-routing/access"
+//         "github.com/ltick/tick-routing/proxy"
 //         "net/http"
 //     )
 //
-//     func myCustomLogger(req http.Context, res access.LogResponseWriter, elapsed int64) {
-//         // Do something with the request, response, and elapsed time data here
+//     proxys = []*Proxy{
+//         &Proxy{Rule:"http://www.example.com/\w+.html/", Upstream:"http://127.0.0.1:9000/index.html"}
 //     }
 //     r := routing.New()
-//     r.Use(access.CustomLogger(myCustomLogger))
-func ProxyHandler(proxyRoutes []*Proxy) routing.Handler {
+//     r.Use(access.Proxy(proxys))
+func ProxyHandler(proxys []*Proxy) routing.Handler {
 	return func(c *routing.Context) error {
-		for _, proxy := range proxyRoutes {
-			upstreamURL, err := proxy.MatchProxy(c.Request)
-			if err != nil {
-				return routing.NewHTTPError(http.StatusInternalServerError, err.Error())
-			}
-			if upstreamURL != nil {
+		for _, proxy := range proxys {
+			match  := proxy.MatchProxy(c.Request)
+			if match {
 				director := func(req *http.Request) {
-					req = c.Request
-					req.URL.Scheme = upstreamURL.Scheme
-					req.URL.Host = upstreamURL.Host
-					req.RequestURI = upstreamURL.RequestURI()
+					req.URL = proxy.UpstreamURL
+					req.Header = *proxy.UpstreamHeader
 				}
 				proxy := &httputil.ReverseProxy{Director: director}
 				proxy.ServeHTTP(c.ResponseWriter, c.Request)
