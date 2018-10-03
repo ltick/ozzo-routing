@@ -8,14 +8,11 @@ package routing
 import (
 	"context"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"sort"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/ltick/tick-routing/proxy"
 )
 
 type (
@@ -294,25 +291,6 @@ func HTTPHandlerFunc(h http.HandlerFunc) Handler {
 func HTTPHandler(h http.Handler) Handler {
 	return func(c *Context) error {
 		h.ServeHTTP(c.ResponseWriter, c.Request)
-		return nil
-	}
-}
-
-func HTTPProxyHandler(proxys []*proxy.Proxy) Handler {
-	return func(c *Context) error {
-		for _, p := range proxys {
-			match := p.MatchProxy(c.Request)
-			if match {
-				director := func(req *http.Request) {
-					req.URL = p.UpstreamURL
-					req.Header = *p.UpstreamHeader
-				}
-				proxy := &httputil.ReverseProxy{Director: director}
-				proxy.ServeHTTP(c.ResponseWriter, c.Request)
-				c.Abort()
-				return nil
-			}
-		}
 		return nil
 	}
 }
