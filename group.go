@@ -29,6 +29,18 @@ func newRouteGroup(prefix string, router *Router, startupHandlers []Handler, ant
 		shutdownHandlers:  shutdownHandlers,
 	}
 }
+func (rg *RouteGroup) GetStartupHandlers() []Handler {
+	return rg.startupHandlers
+}
+func (rg *RouteGroup) GetAnteriorHandlers() []Handler {
+	return rg.anteriorHandlers
+}
+func (rg *RouteGroup) GetPosteriorHandlers() []Handler {
+	return rg.posteriorHandlers
+}
+func (rg *RouteGroup) GetShutdownHandlers() []Handler {
+	return rg.shutdownHandlers
+}
 
 // Get adds a GET route to the router with the given route path and handlers.
 func (rg *RouteGroup) Get(path string, handlers ...Handler) *Route {
