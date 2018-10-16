@@ -10,23 +10,23 @@ import (
 
 // RouteGroup represents a group of routes that share the same path prefix.
 type RouteGroup struct {
-	prefix                string
-	router                *Router
-	groupStartupHandlers  []Handler
-	anteriorHandlers      []Handler
-	posteriorHandlers     []Handler
-	groupShutdownHandlers []Handler
+	prefix            string
+	router            *Router
+	startupHandlers   []Handler
+	anteriorHandlers  []Handler
+	posteriorHandlers []Handler
+	shutdownHandlers  []Handler
 }
 
 // newRouteGroup creates a new RouteGroup with the given path prefix, router, and handlers.
-func newRouteGroup(prefix string, router *Router, groupStartupHandlers []Handler, anteriorHandlers []Handler, posteriorHandlers []Handler, groupShutdownHandlers []Handler) *RouteGroup {
+func newRouteGroup(prefix string, router *Router, startupHandlers []Handler, anteriorHandlers []Handler, posteriorHandlers []Handler, shutdownHandlers []Handler) *RouteGroup {
 	return &RouteGroup{
-		prefix:                prefix,
-		router:                router,
-		groupStartupHandlers:  groupStartupHandlers,
-		anteriorHandlers:      anteriorHandlers,
-		posteriorHandlers:     posteriorHandlers,
-		groupShutdownHandlers: groupShutdownHandlers,
+		prefix:            prefix,
+		router:            router,
+		startupHandlers:   startupHandlers,
+		anteriorHandlers:  anteriorHandlers,
+		posteriorHandlers: posteriorHandlers,
+		shutdownHandlers:  shutdownHandlers,
 	}
 }
 
@@ -99,40 +99,40 @@ func (rg *RouteGroup) To(methods, path string, handlers ...Handler) *Route {
 // The new group will combine the existing path prefix with the new one.
 // If no handler is provided, the new group will inherit the handlers registered
 // with the current group.
-func (rg *RouteGroup) Group(prefix string, groupStartupHandlers []Handler, groupShutdownHandlers []Handler) *RouteGroup {
-	if groupStartupHandlers == nil {
-		if rg.groupStartupHandlers != nil {
-			groupStartupHandlers = make([]Handler, len(rg.groupStartupHandlers))
-			copy(groupStartupHandlers, rg.groupStartupHandlers)
+func (rg *RouteGroup) Group(prefix string, startupHandlers []Handler, shutdownHandlers []Handler) *RouteGroup {
+	if startupHandlers == nil {
+		if rg.startupHandlers != nil {
+			startupHandlers = make([]Handler, len(rg.startupHandlers))
+			copy(startupHandlers, rg.startupHandlers)
 		} else {
-			groupStartupHandlers = make([]Handler, 0)
+			startupHandlers = make([]Handler, 0)
 		}
 	}
-	if groupShutdownHandlers == nil {
-		if rg.groupShutdownHandlers != nil {
-			groupShutdownHandlers = make([]Handler, len(rg.groupShutdownHandlers))
-			copy(groupShutdownHandlers, rg.groupShutdownHandlers)
+	if shutdownHandlers == nil {
+		if rg.shutdownHandlers != nil {
+			shutdownHandlers = make([]Handler, len(rg.shutdownHandlers))
+			copy(shutdownHandlers, rg.shutdownHandlers)
 		} else {
-			groupShutdownHandlers = make([]Handler, 0)
+			shutdownHandlers = make([]Handler, 0)
 		}
 	}
-	return newRouteGroup(rg.prefix+prefix, rg.router, groupStartupHandlers, rg.anteriorHandlers, rg.posteriorHandlers, groupShutdownHandlers)
+	return newRouteGroup(rg.prefix+prefix, rg.router, startupHandlers, rg.anteriorHandlers, rg.posteriorHandlers, shutdownHandlers)
 }
 
 // Startup registers one or multiple handlers to the current route group.
 // These handlers will be shared by all routes belong to this group and its subgroups.
 func (rg *RouteGroup) AppendStartupHandler(handlers ...Handler) {
-	rg.groupStartupHandlers = append(rg.groupStartupHandlers, handlers...)
+	rg.startupHandlers = append(rg.startupHandlers, handlers...)
 }
 func (rg *RouteGroup) PrependStartupHandler(handlers ...Handler) {
-	rg.groupStartupHandlers = append(handlers, rg.groupStartupHandlers...)
+	rg.startupHandlers = append(handlers, rg.startupHandlers...)
 }
 
 func (rg *RouteGroup) AppendShutdownHandler(handlers ...Handler) {
-	rg.groupShutdownHandlers = append(rg.groupShutdownHandlers, handlers...)
+	rg.shutdownHandlers = append(rg.shutdownHandlers, handlers...)
 }
 func (rg *RouteGroup) PrependShutdownHandler(handlers ...Handler) {
-	rg.groupShutdownHandlers = append(handlers, rg.groupShutdownHandlers...)
+	rg.shutdownHandlers = append(handlers, rg.shutdownHandlers...)
 }
 
 func (rg *RouteGroup) AppendAnteriorHandler(handlers ...Handler) {
@@ -151,7 +151,7 @@ func (rg *RouteGroup) PrependPosteriorHandler(handlers ...Handler) {
 
 func (rg *RouteGroup) add(method, path string, handlers []Handler) *Route {
 	r := rg.newRoute(method, path)
-	rg.router.addRoute(r, combineHandlers(combineHandlers(rg.groupStartupHandlers, combineHandlers(combineHandlers(rg.anteriorHandlers, handlers), rg.posteriorHandlers)), rg.groupShutdownHandlers))
+	rg.router.addRoute(r, combineHandlers(combineHandlers(rg.startupHandlers, combineHandlers(combineHandlers(rg.anteriorHandlers, handlers), rg.posteriorHandlers)), rg.shutdownHandlers))
 	return r
 }
 

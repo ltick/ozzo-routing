@@ -119,7 +119,7 @@ func (r *Router) Routes() []*Route {
 // Startup prepends the specified handlers to the router and shares them with all routes.
 func (r *Router) AppendStartupHandler(handlers ...Handler) *Router {
 	r.RouteGroup.AppendStartupHandler(handlers...)
-	r.notFoundHandlers = combineHandlers(r.groupStartupHandlers, r.notFound)
+	r.notFoundHandlers = combineHandlers(r.startupHandlers, r.notFound)
 	return r
 }
 
@@ -153,7 +153,7 @@ func (r *Router) AppendPosteriorHandler(handlers ...Handler) *Router {
 // Note that the handlers registered via Use will be invoked first in this case.
 func (r *Router) NotFound(handlers ...Handler) *Router {
 	r.notFound = handlers
-	r.notFoundHandlers = combineHandlers(r.groupStartupHandlers, r.notFound)
+	r.notFoundHandlers = combineHandlers(r.startupHandlers, r.notFound)
 	return r
 }
 
