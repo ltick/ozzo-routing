@@ -46,6 +46,14 @@ func (c *Context) Params() []string {
 	return c.pvalues
 }
 
+func (c *Context) ParamMap() map[string]string {
+	paramMap := make(map[string]string, len(c.pnames))
+	for i, n := range c.pnames {
+		paramMap[n] = c.pvalues[i]
+	}
+	return paramMap
+}
+
 // Param returns the named parameter value that is found in the URL path matching the current route.
 // If the named parameter cannot be found, an empty string will be returned.
 func (c *Context) Param(name string) string {
