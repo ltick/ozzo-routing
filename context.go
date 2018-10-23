@@ -42,6 +42,10 @@ func (c *Context) Router() *Router {
 	return c.router
 }
 
+func (c *Context) Params() []string {
+	return c.pvalues
+}
+
 // Param returns the named parameter value that is found in the URL path matching the current route.
 // If the named parameter cannot be found, an empty string will be returned.
 func (c *Context) Param(name string) string {
