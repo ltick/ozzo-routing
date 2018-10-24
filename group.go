@@ -112,22 +112,6 @@ func (rg *RouteGroup) To(methods, path string, handlers ...Handler) *Route {
 // If no handler is provided, the new group will inherit the handlers registered
 // with the current group.
 func (rg *RouteGroup) Group(prefix string, startupHandlers []Handler, shutdownHandlers []Handler) *RouteGroup {
-	if startupHandlers == nil {
-		if rg.startupHandlers != nil {
-			startupHandlers = make([]Handler, len(rg.startupHandlers))
-			copy(startupHandlers, rg.startupHandlers)
-		} else {
-			startupHandlers = make([]Handler, 0)
-		}
-	}
-	if shutdownHandlers == nil {
-		if rg.shutdownHandlers != nil {
-			shutdownHandlers = make([]Handler, len(rg.shutdownHandlers))
-			copy(shutdownHandlers, rg.shutdownHandlers)
-		} else {
-			shutdownHandlers = make([]Handler, 0)
-		}
-	}
 	return newRouteGroup(rg.prefix+prefix, rg.router, startupHandlers, rg.anteriorHandlers, rg.posteriorHandlers, shutdownHandlers)
 }
 
