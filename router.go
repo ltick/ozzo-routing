@@ -119,7 +119,6 @@ func (r *Router) Routes() []*Route {
 // Startup prepends the specified handlers to the router and shares them with all routes.
 func (r *Router) AppendStartupHandler(handlers ...Handler) *Router {
 	r.RouteGroup.AppendStartupHandler(handlers...)
-	r.notFoundHandlers = combineHandlers(r.startupHandlers, r.notFound)
 	return r
 }
 
