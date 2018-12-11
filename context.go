@@ -155,13 +155,7 @@ func (c *Context) Next() (err error) {
 			case context.DeadlineExceeded:
 				timeoutIndex := 0
 				for n := len(c.router.TimeoutHandlers); timeoutIndex < n; timeoutIndex++ {
-					if err = c.router.TimeoutHandlers[timeoutIndex](c); err != nil {
-						if httpError, ok := err.(HTTPError); ok {
-							return NewHTTPError(httpError.StatusCode(), httpError.Error())
-						} else {
-							return NewHTTPError(http.StatusInternalServerError, err.Error())
-						}
-					}
+					c.router.TimeoutHandlers[timeoutIndex](c)
 				}
 			case context.Canceled:
 				cancelIndex := 0
