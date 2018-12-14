@@ -111,8 +111,8 @@ func (rg *RouteGroup) To(methods, path string, handlers ...Handler) *Route {
 // The new group will combine the existing path prefix with the new one.
 // If no handler is provided, the new group will inherit the handlers registered
 // with the current group.
-func (rg *RouteGroup) Group(prefix string, startupHandlers []Handler, shutdownHandlers []Handler) *RouteGroup {
-	return newRouteGroup(rg.prefix+prefix, rg.router, startupHandlers, rg.anteriorHandlers, rg.posteriorHandlers, shutdownHandlers)
+func (rg *RouteGroup) Group(prefix string) *RouteGroup {
+	return newRouteGroup(rg.prefix+prefix, rg.router, rg.startupHandlers, rg.anteriorHandlers, rg.posteriorHandlers, rg.shutdownHandlers)
 }
 
 // Startup registers one or multiple handlers to the current route group.
