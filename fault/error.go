@@ -34,7 +34,7 @@ func ErrorHandler(logf LogFunc, errorf ...ConvertErrorFunc) routing.Handler {
 	return func(c *routing.Context) error {
 		err := c.Next()
 		if err == nil {
-			return  nil
+			return nil
 		}
 		if logf != nil {
 			logf("%v", err)
@@ -45,7 +45,7 @@ func ErrorHandler(logf LogFunc, errorf ...ConvertErrorFunc) routing.Handler {
 		writeError(c, err)
 		c.Abort()
 
-		return  nil
+		return nil
 	}
 }
 
@@ -58,5 +58,7 @@ func writeError(c *routing.Context, err error) {
 	} else {
 		c.ResponseWriter.WriteHeader(http.StatusInternalServerError)
 	}
-	c.Write(err)
+	if !c.Wrote {
+		c.Write(err)
+	}
 }

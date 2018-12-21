@@ -46,7 +46,7 @@ func Recovery(logf LogFunc, errorf ...ConvertErrorFunc) routing.Handler {
 		err := handlePanic(c)
 		if err != nil {
 			if logf != nil {
-			    logf("%v", err)
+				logf("%v", err)
 			}
 			if len(errorf) > 0 {
 				err = errorf[0](c, err)
@@ -54,6 +54,6 @@ func Recovery(logf LogFunc, errorf ...ConvertErrorFunc) routing.Handler {
 			writeError(c, err)
 			c.Abort()
 		}
-		return  nil
+		return nil
 	}
 }
