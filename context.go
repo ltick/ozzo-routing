@@ -177,6 +177,11 @@ func (c *Context) Abort() {
 	c.index = len(c.handlers)
 }
 
+// Jump skips the number of the handlers associated with the current route.
+func (c *Context) Jump(num int) {
+	c.index = c.index + num
+}
+
 // URL creates a URL using the named route and the parameter values.
 // The parameters should be given in the sequence of name1, value1, name2, value2, and so on.
 // If a parameter in the route is not provided a value, the parameter token will remain in the resulting URL.
