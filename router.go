@@ -85,10 +85,12 @@ func (r *Router) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	c := r.pool.Get().(*Context)
 	c.init(res, req)
 	// timeout & cancel
-	if r.TimeoutDuration != 0*time.Second {
+	if r.TimeoutDuration > 0*time.Second {
 		c.Context, c.CancelFunc = context.WithTimeout(c.Context, r.TimeoutDuration)
+		defer c.CancelFunc()
 	} else {
 		c.Context, c.CancelFunc = context.WithCancel(c.Context)
+		defer c.CancelFunc()
 	}
 	c.Request.WithContext(c.Context)
 	if r.UseEscapedPath {
