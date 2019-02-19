@@ -259,6 +259,7 @@ func (c *Context) init(responseWriter http.ResponseWriter, request *http.Request
 	c.data = nil
 	c.index = -1
 	c.writer = DefaultDataWriter
+	c.Wrote = false
 	if c.router != nil && c.router.Context != nil {
 		c.Context = c.router.Context
 	} else {
