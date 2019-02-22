@@ -22,7 +22,7 @@ type Context struct {
 	index          int                    // the index of the currently executing handler in handlers
 	handlers       []Handler              // the handlers associated with the current route
 	writer         DataWriter
-	Wrote bool
+	Wrote          bool
 
 	CancelFunc context.CancelFunc
 }
@@ -142,29 +142,10 @@ func (c *Context) PostForm(key string, defaultValue ...string) string {
 // Next is normally used when a handler needs to do some postprocessing after the rest of the handlers
 // are executed.
 func (c *Context) Next() (err error) {
-	if c.CancelFunc != nil {
-		defer c.CancelFunc()
-	}
 	c.index++
 	for n := len(c.handlers); c.index < n; c.index++ {
 		if err = c.handlers[c.index](c); err != nil {
 			return err
-		}
-		select {
-		case <-c.Context.Done():
-			switch c.Context.Err() {
-			case context.DeadlineExceeded:
-				timeoutIndex := 0
-				for n := len(c.router.TimeoutHandlers); timeoutIndex < n; timeoutIndex++ {
-					c.router.TimeoutHandlers[timeoutIndex](c)
-				}
-			case context.Canceled:
-				cancelIndex := 0
-				for n := len(c.router.CancelHandlers); cancelIndex < n; cancelIndex++ {
-					c.router.CancelHandlers[cancelIndex](c)
-				}
-			}
-		default:
 		}
 	}
 	return nil

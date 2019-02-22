@@ -66,6 +66,7 @@ func New(ctx context.Context) *Router {
 		stores:          make(map[string]routeStore),
 		TimeoutDuration: 0 * time.Second,
 		TimeoutHandlers: []Handler{TimeoutHandler},
+		CancelHandlers:  []Handler{CancelHandler},
 		Context:         ctx,
 	}
 	r.RouteGroup = *newRouteGroup("", r, make([]Handler, 0), make([]Handler, 0), make([]Handler, 0), make([]Handler, 0))
@@ -101,8 +102,29 @@ func (r *Router) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	} else {
 		c.handlers, c.pnames = r.find(req.Method, r.normalizeRequestPath(req.URL.Path), c.pvalues)
 	}
-	if err := c.Next(); err != nil {
-		r.handleError(c, err)
+	var errChan chan error = make(chan error)
+	go func(ctx *Context, errChan chan error) {
+		errChan <- c.Next()
+	}(c, errChan)
+	select {
+	case <-c.Context.Done():
+		c.Abort()
+		switch c.Context.Err() {
+		case context.DeadlineExceeded:
+			timeoutIndex := 0
+			for n := len(c.router.TimeoutHandlers); timeoutIndex < n; timeoutIndex++ {
+				c.router.TimeoutHandlers[timeoutIndex](c)
+			}
+		case context.Canceled:
+			cancelIndex := 0
+			for n := len(c.router.CancelHandlers); cancelIndex < n; cancelIndex++ {
+				c.router.CancelHandlers[cancelIndex](c)
+			}
+		}
+	case err := <-errChan:
+		if err != nil {
+			r.handleError(c, err)
+		}
 	}
 	r.pool.Put(c)
 }
@@ -248,12 +270,15 @@ func (r *Router) normalizeRequestPath(path string) string {
 
 // TimeoutHandler returns a 408 HTTP error indicating a request execute timeout.
 func TimeoutHandler(c *Context) error {
-	return NewHTTPError(http.StatusRequestTimeout)
+	return NewHTTPError(http.StatusRequestTimeout, http.StatusText(http.StatusRequestTimeout))
+}
+func CancelHandler(c *Context) error {
+	return NewHTTPError(http.StatusNoContent, http.StatusText(http.StatusNoContent))
 }
 
 // NotFoundHandler returns a 404 HTTP error indicating a request has no matching route.
 func NotFoundHandler(c *Context) error {
-	return NewHTTPError(http.StatusNotFound)
+	return NewHTTPError(http.StatusNotFound, http.StatusText(http.StatusNotFound))
 }
 
 // MethodNotAllowedHandler handles the situation when a request has matching route without matching HTTP method.
