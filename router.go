@@ -93,7 +93,7 @@ func (r *Router) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		c.Context, c.CancelFunc = context.WithCancel(c.Context)
 		defer c.CancelFunc()
 	}
-	c.Request.WithContext(c.Context)
+	c.Request = c.Request.WithContext(c.Context)
 	if r.UseEscapedPath {
 		c.handlers, c.pnames = r.find(req.Method, r.normalizeRequestPath(req.URL.EscapedPath()), c.pvalues)
 		for i, v := range c.pvalues {
@@ -115,7 +115,10 @@ func (r *Router) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 			for n := len(c.router.TimeoutHandlers); timeoutIndex < n; timeoutIndex++ {
 				err := c.router.TimeoutHandlers[timeoutIndex](c)
 				if err != nil {
-					r.handleError(c, err)
+					if !c.Wrote {
+						r.handleError(c, err)
+						c.Wrote = true
+					}
 					break
 				}
 			}
@@ -124,17 +127,23 @@ func (r *Router) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 			for n := len(c.router.CancelHandlers); cancelIndex < n; cancelIndex++ {
 				err := c.router.CancelHandlers[cancelIndex](c)
 				if err != nil {
-					r.handleError(c, err)
+					if !c.Wrote {
+						r.handleError(c, err)
+						c.Wrote = true
+					}
 					break
 				}
 			}
 		}
 	case err := <-errChan:
+		r.pool.Put(c)
 		if err != nil {
-			r.handleError(c, err)
+			if !c.Wrote {
+				r.handleError(c, err)
+				c.Wrote = true
+			}
 		}
 	}
-	r.pool.Put(c)
 }
 
 // Route returns the named route.
