@@ -102,7 +102,7 @@ func (r *Router) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	} else {
 		c.handlers, c.pnames = r.find(req.Method, r.normalizeRequestPath(req.URL.Path), c.pvalues)
 	}
-	var errChan chan error = make(chan error)
+	var errChan chan error = make(chan error, 1)
 	go func(ctx *Context, errChan chan error) {
 		errChan <- c.Next()
 	}(c, errChan)
