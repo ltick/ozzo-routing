@@ -198,8 +198,8 @@ func (c *Context) Read(data interface{}) error {
 func (c *Context) Write(data interface{}) error {
 	if !c.Wrote {
 		_, err := c.writer.Write(c.ResponseWriter, data)
-		return err
 		c.Wrote = true
+		return err
 	}
 	return nil
 }
