@@ -23,6 +23,7 @@ type Context struct {
 	handlers       []Handler              // the handlers associated with the current route
 	writer         DataWriter
 	Wrote          bool
+	WroteHeader          bool
 
 	CancelFunc context.CancelFunc
 }
@@ -201,6 +202,12 @@ func (c *Context) Write(data interface{}) error {
 		c.Wrote = true
 	}
 	return nil
+}
+func (c *Context) WriteHeader(status int) {
+	if !c.WroteHeader {
+		c.ResponseWriter.WriteHeader(status)
+		c.WroteHeader = true
+	}
 }
 
 // SetDataWriter sets the data writer that will be used by Write().
