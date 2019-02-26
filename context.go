@@ -195,9 +195,12 @@ func (c *Context) Read(data interface{}) error {
 // The method calls the data writer set via SetDataWriter() to do the actual writing.
 // By default, the DefaultDataWriter will be used.
 func (c *Context) Write(data interface{}) error {
-	c.Wrote = true
-	_, err := c.writer.Write(c.ResponseWriter, data)
-	return err
+	if !c.Wrote {
+		_, err := c.writer.Write(c.ResponseWriter, data)
+		return err
+		c.Wrote = true
+	}
+	return nil
 }
 
 // SetDataWriter sets the data writer that will be used by Write().
