@@ -113,12 +113,20 @@ func (r *Router) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		case context.DeadlineExceeded:
 			timeoutIndex := 0
 			for n := len(c.router.TimeoutHandlers); timeoutIndex < n; timeoutIndex++ {
-				c.router.TimeoutHandlers[timeoutIndex](c)
+				err := c.router.TimeoutHandlers[timeoutIndex](c)
+				if err != nil {
+					r.handleError(c, err)
+					break
+				}
 			}
 		case context.Canceled:
 			cancelIndex := 0
 			for n := len(c.router.CancelHandlers); cancelIndex < n; cancelIndex++ {
-				c.router.CancelHandlers[cancelIndex](c)
+				err := c.router.CancelHandlers[cancelIndex](c)
+				if err != nil {
+					r.handleError(c, err)
+					break
+				}
 			}
 		}
 	case err := <-errChan:
