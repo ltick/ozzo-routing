@@ -105,6 +105,7 @@ func (r *Router) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	var errChan chan error = make(chan error, 1)
 	go func(ctx *Context, errChan chan error) {
 		errChan <- c.Next()
+		r.pool.Put(c)
 	}(c, errChan)
 	select {
 	case <-c.Context.Done():
@@ -136,7 +137,6 @@ func (r *Router) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 			}
 		}
 	case err := <-errChan:
-		r.pool.Put(c)
 		if err != nil {
 			if !c.Wrote {
 				r.handleError(c, err)
