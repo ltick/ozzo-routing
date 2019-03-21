@@ -43,66 +43,83 @@ func (rg *RouteGroup) GetShutdownHandlers() []Handler {
 }
 
 // Get adds a GET route to the router with the given route path and handlers.
-func (rg *RouteGroup) Get(path string, handlers ...Handler) *Route {
-	return rg.add("GET", path, handlers)
+func (rg *RouteGroup) Get(schemes, hosts, path string, query, headers map[string]string, handlers ...Handler) *Route {
+	return rg.add("GET", schemes, hosts, path, query, headers, handlers)
 }
 
 // Post adds a POST route to the router with the given route path and handlers.
-func (rg *RouteGroup) Post(path string, handlers ...Handler) *Route {
-	return rg.add("POST", path, handlers)
+func (rg *RouteGroup) Post(schemes, hosts, path string, query, headers map[string]string, handlers ...Handler) *Route {
+	return rg.add("POST", schemes, hosts, path, query, headers, handlers)
 }
 
 // Put adds a PUT route to the router with the given route path and handlers.
-func (rg *RouteGroup) Put(path string, handlers ...Handler) *Route {
-	return rg.add("PUT", path, handlers)
+func (rg *RouteGroup) Put(schemes, hosts, path string, query, headers map[string]string, handlers ...Handler) *Route {
+	return rg.add("PUT", schemes, hosts, path, query, headers, handlers)
 }
 
 // Patch adds a PATCH route to the router with the given route path and handlers.
-func (rg *RouteGroup) Patch(path string, handlers ...Handler) *Route {
-	return rg.add("PATCH", path, handlers)
+func (rg *RouteGroup) Patch(schemes, hosts, path string, query, headers map[string]string, handlers ...Handler) *Route {
+	return rg.add("PATCH", schemes, hosts, path, query, headers, handlers)
 }
 
 // Delete adds a DELETE route to the router with the given route path and handlers.
-func (rg *RouteGroup) Delete(path string, handlers ...Handler) *Route {
-	return rg.add("DELETE", path, handlers)
+func (rg *RouteGroup) Delete(schemes, hosts, path string, query, headers map[string]string, handlers ...Handler) *Route {
+	return rg.add("DELETE", schemes, hosts, path, query, headers, handlers)
 }
 
 // Connect adds a CONNECT route to the router with the given route path and handlers.
-func (rg *RouteGroup) Connect(path string, handlers ...Handler) *Route {
-	return rg.add("CONNECT", path, handlers)
+func (rg *RouteGroup) Connect(schemes, hosts, path string, query, headers map[string]string, handlers ...Handler) *Route {
+	return rg.add("CONNECT", schemes, hosts, path, query, headers, handlers)
 }
 
 // Head adds a HEAD route to the router with the given route path and handlers.
-func (rg *RouteGroup) Head(path string, handlers ...Handler) *Route {
-	return rg.add("HEAD", path, handlers)
+func (rg *RouteGroup) Head(schemes, hosts, path string, query, headers map[string]string, handlers ...Handler) *Route {
+	return rg.add("HEAD", schemes, hosts, path, query, headers, handlers)
 }
 
 // Options adds an OPTIONS route to the router with the given route path and handlers.
-func (rg *RouteGroup) Options(path string, handlers ...Handler) *Route {
-	return rg.add("OPTIONS", path, handlers)
+func (rg *RouteGroup) Options(schemes, hosts, path string, query, headers map[string]string, handlers ...Handler) *Route {
+	return rg.add("OPTIONS", schemes, hosts, path, query, headers, handlers)
 }
 
 // Trace adds a TRACE route to the router with the given route path and handlers.
-func (rg *RouteGroup) Trace(path string, handlers ...Handler) *Route {
-	return rg.add("TRACE", path, handlers)
+func (rg *RouteGroup) Trace(schemes, hosts, path string, query, headers map[string]string, handlers ...Handler) *Route {
+	return rg.add("TRACE", schemes, hosts, path, query, headers, handlers)
 }
 
 // Any adds a route with the given route, handlers, and the HTTP methods as listed in routing.Methods.
-func (rg *RouteGroup) Any(path string, handlers ...Handler) *Route {
-	return rg.To(strings.Join(Methods, ","), path, handlers...)
+func (rg *RouteGroup) Any(schemes, hosts, path string, query, headers map[string]string, handlers ...Handler) *Route {
+	return rg.To(strings.Join(Methods, ","), schemes, hosts, path, query, headers, handlers...)
 }
 
 // To adds a route to the router with the given HTTP methods, route path, and handlers.
 // Multiple HTTP methods should be separated by commas (without any surrounding spaces).
-func (rg *RouteGroup) To(methods, path string, handlers ...Handler) *Route {
+func (rg *RouteGroup) To(methods, schemes, hosts, path string, query, headers map[string]string, handlers ...Handler) *Route {
 	mm := strings.Split(methods, ",")
-	if len(mm) == 1 {
-		return rg.add(methods, path, handlers)
+	ss := strings.Split(schemes, ",")
+	hh := strings.Split(hosts, ",")
+	if len(mm) == 1 && len(ss) == 1 && len(hh) == 1 {
+		return rg.add(methods, schemes, hosts, path, query, headers, handlers)
 	}
-
-	r := rg.newRoute(methods, path)
+	r := rg.newRoute(methods, schemes, hosts, path, query, headers)
 	for _, method := range mm {
-		r.routes = append(r.routes, rg.add(method, path, handlers))
+		if len(ss) > 0 && len(hh) > 0 {
+			for _, scheme := range ss {
+				for _, host := range hh {
+					r.routes = append(r.routes, rg.add(method, scheme, host, path, query, headers, handlers))
+				}
+			}
+		} else if len(ss) > 0 {
+			for _, scheme := range ss {
+				r.routes = append(r.routes, rg.add(method, scheme, hosts, path, query, headers, handlers))
+			}
+		} else if len(hh) > 0 {
+			for _, host := range hh {
+				r.routes = append(r.routes, rg.add(method, schemes, host, path, query, headers, handlers))
+			}
+		} else {
+			r.routes = append(r.routes, rg.add(method, schemes, hosts, path, query, headers, handlers))
+		}
 	}
 	return r
 }
@@ -145,19 +162,23 @@ func (rg *RouteGroup) PrependPosteriorHandler(handlers ...Handler) {
 	rg.posteriorHandlers = append(handlers, rg.posteriorHandlers...)
 }
 
-func (rg *RouteGroup) add(method, path string, handlers []Handler) *Route {
-	r := rg.newRoute(method, path)
+func (rg *RouteGroup) add(methods, schemes, hosts, path string, query, headers map[string]string, handlers []Handler) *Route {
+	r := rg.newRoute(methods, schemes, hosts, path, query, headers)
 	rg.router.addRoute(r, combineHandlers(combineHandlers(rg.startupHandlers, combineHandlers(combineHandlers(rg.anteriorHandlers, handlers), rg.posteriorHandlers)), rg.shutdownHandlers))
 	return r
 }
 
 // newRoute creates a new Route with the given route path and route group.
-func (rg *RouteGroup) newRoute(method, path string) *Route {
+func (rg *RouteGroup) newRoute(methods, schemes, hosts, path string, query, headers map[string]string) *Route {
 	return &Route{
 		group:    rg,
-		method:   method,
+		schemes:  schemes,
+		hosts:    hosts,
+		methods:  methods,
 		path:     path,
-		template: buildURLTemplate(rg.prefix + path),
+		headers:  headers,
+		query:    query,
+		template: buildURLTemplate(methods, schemes, hosts, rg.prefix+path, query, headers),
 	}
 }
 
@@ -170,9 +191,10 @@ func combineHandlers(h1 []Handler, h2 []Handler) []Handler {
 }
 
 // buildURLTemplate converts a route pattern into a URL template by removing regular expressions in parameter tokens.
-func buildURLTemplate(path string) string {
+func buildURLTemplate(methods, schemes, hosts, path string, query, headers map[string]string) string {
 	path = strings.TrimRight(path, "*")
 	template, start, end := "", -1, -1
+	template += methods + " " + schemes + "://" + hosts
 	for i := 0; i < len(path); i++ {
 		if path[i] == '<' && start < 0 {
 			start = i
@@ -190,9 +212,35 @@ func buildURLTemplate(path string) string {
 		}
 	}
 	if end < 0 {
-		template = path
+		template += path
 	} else if end < len(path)-1 {
 		template += path[end+1:]
 	}
+	queryNum := len(query)
+	if queryNum > 0 {
+		template += "?"
+		for key, val := range query {
+			queryNum--
+			if queryNum > 0 {
+				template += key + "=" + val + "&"
+			} else {
+				template += key + "=" + val
+			}
+		}
+	}
+
+	headerNum := len(headers)
+	if headerNum > 0 {
+		template += " "
+		for key, val := range headers {
+			headerNum--
+			if headerNum > 0 {
+				template += key + ":" + val + "\n"
+			} else {
+				template += key + ":" + val
+			}
+		}
+	}
+
 	return template
 }

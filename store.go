@@ -43,8 +43,8 @@ func (s *store) Add(key string, data interface{}) int {
 // Get returns the data item matching the given concrete key.
 // If the data item was added to the store with a parametric key before, the matching
 // parameter names and values will be returned as well.
-func (s *store) Get(path string, pvalues []string) (data interface{}, pnames []string) {
-	data, pnames, _ = s.root.get(path, pvalues)
+func (s *store) Get(pname string, pvalues []string) (data interface{}, pnames []string) {
+	data, pnames, _ = s.root.get(pname, pvalues)
 	return
 }
 

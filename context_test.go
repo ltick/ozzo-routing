@@ -56,9 +56,9 @@ func TestContextInit(t *testing.T) {
 
 func TestContextURL(t *testing.T) {
 	router := New(context.Background())
-	router.Get("/users/<id:\\d+>/<action>/*").Name("users")
+	router.Get("http", "example.com", "/users/<id:\\d+>/<action>/*", "", nil).Name("users")
 	c := &Context{router: router}
-	assert.Equal(t, "/users/123/address/", c.URL("users", "id", 123, "action", "address"))
+	assert.Equal(t, "GET http://example.com/users/123/address/", c.URL("users", "id", 123, "action", "address"))
 	assert.Equal(t, "", c.URL("abc", "id", 123, "action", "address"))
 }
 

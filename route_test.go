@@ -33,15 +33,15 @@ func TestRouteNew(t *testing.T) {
 	router := New(context.Background())
 	group := newRouteGroup("/admin", router, nil, nil, nil, nil)
 
-	r1 := group.newRoute("GET", "/users").Get()
+	r1 := group.newRoute("GET", "http", "example.com", "/users", "", nil).Get()
 	assert.Equal(t, "", r1.name, "route.name =")
 	assert.Equal(t, "/users", r1.path, "route.path =")
 	assert.Equal(t, 1, len(router.Routes()))
 
-	r2 := group.newRoute("GET", "/users/<id:\\d+>/*").Post()
+	r2 := group.newRoute("GET", "http", "example.com", "/users/<id:\\d+>/*", "", nil).Post()
 	assert.Equal(t, "", r2.name, "route.name =")
 	assert.Equal(t, "/users/<id:\\d+>/*", r2.path, "route.path =")
-	assert.Equal(t, "/admin/users/<id>/", r2.template, "route.template =")
+	assert.Equal(t, "POST http://example.com/admin/users/<id>/", r2.template, "route.template =")
 	assert.Equal(t, 2, len(router.Routes()))
 }
 
@@ -49,7 +49,7 @@ func TestRouteName(t *testing.T) {
 	router := New(context.Background())
 	group := newRouteGroup("/admin", router, nil, nil, nil, nil)
 
-	r1 := group.newRoute("GET", "/users")
+	r1 := group.newRoute("GET", "http", "example.com", "/users", "", nil)
 	assert.Equal(t, "", r1.name, "route.name =")
 	r1.Name("user")
 	assert.Equal(t, "user", r1.name, "route.name =")
@@ -60,13 +60,13 @@ func TestRouteName(t *testing.T) {
 func TestRouteURL(t *testing.T) {
 	router := New(context.Background())
 	group := newRouteGroup("/admin", router, nil, nil, nil, nil)
-	r := group.newRoute("GET", "/users/<id:\\d+>/<action>/*")
-	assert.Equal(t, "/admin/users/123/address/", r.URL("id", 123, "action", "address"))
-	assert.Equal(t, "/admin/users/123/<action>/", r.URL("id", 123))
-	assert.Equal(t, "/admin/users/123//", r.URL("id", 123, "action"))
-	assert.Equal(t, "/admin/users/123/profile/", r.URL("id", 123, "action", "profile", ""))
-	assert.Equal(t, "/admin/users/123/profile/", r.URL("id", 123, "action", "profile", "", "xyz/abc"))
-	assert.Equal(t, "/admin/users/123/a%2C%3C%3E%3F%23/", r.URL("id", 123, "action", "a,<>?#"))
+	r := group.newRoute("GET", "http", "example.com", "/users/<id:\\d+>/<action>/*", "", nil)
+	assert.Equal(t, "GET http://example.com/admin/users/123/address/", r.URL("id", 123, "action", "address"))
+	assert.Equal(t, "GET http://example.com/admin/users/123/<action>/", r.URL("id", 123))
+	assert.Equal(t, "GET http://example.com/admin/users/123//", r.URL("id", 123, "action"))
+	assert.Equal(t, "GET http://example.com/admin/users/123/profile/", r.URL("id", 123, "action", "profile", ""))
+	assert.Equal(t, "GET http://example.com/admin/users/123/profile/", r.URL("id", 123, "action", "profile", "", "xyz/abc"))
+	assert.Equal(t, "GET http://example.com/admin/users/123/a%2C%3C%3E%3F%23/", r.URL("id", 123, "action", "a,<>?#"))
 }
 
 func newHandler(tag string, buf *bytes.Buffer) Handler {
@@ -85,32 +85,32 @@ func TestRouteAdd(t *testing.T) {
 	var buf bytes.Buffer
 
 	group := newRouteGroup("/admin", router, []Handler{newHandler("1.", &buf), newHandler("2.", &buf)}, []Handler{}, []Handler{}, []Handler{})
-	group.newRoute("GET", "/users").Get(newHandler("3.", &buf), newHandler("4.", &buf))
+	group.newRoute("GET", "http", "example.com", "/users", "", nil).Get(newHandler("3.", &buf), newHandler("4.", &buf))
 	assert.Equal(t, "1.2.3.4.", buf.String(), "buf@1 =")
 
 	buf.Reset()
 	group = newRouteGroup("/admin", router, []Handler{}, []Handler{}, []Handler{}, []Handler{})
-	group.newRoute("GET", "/users").Get(newHandler("3.", &buf), newHandler("4.", &buf))
+	group.newRoute("GET", "http", "example.com", "/users", "", nil).Get(newHandler("3.", &buf), newHandler("4.", &buf))
 	assert.Equal(t, "3.4.", buf.String(), "buf@2 =")
 
 	buf.Reset()
 	group = newRouteGroup("/admin", router, []Handler{newHandler("1.", &buf), newHandler("2.", &buf)}, []Handler{}, []Handler{}, []Handler{})
-	group.newRoute("GET", "/users").Get()
+	group.newRoute("GET", "http", "example.com", "/users", "", nil).Get()
 	assert.Equal(t, "1.2.", buf.String(), "buf@3 =")
 }
 
 func TestRouteTag(t *testing.T) {
 	router := New(context.Background())
-	router.Get("/posts").Tag("posts")
-	router.Any("/users").Tag("users")
-	router.To("PUT,PATCH", "/comments").Tag("comments")
-	router.Get("/orders").Tag("GET orders").Post().Tag("POST orders")
+	router.Get("http", "example.com", "/posts", "", nil).Tag("posts")
+	router.Any("http", "example.com", "/users", "", nil).Tag("users")
+	router.To("PUT,PATCH", "http", "example.com", "/comments", "", nil).Tag("comments")
+	router.Get("http", "example.com", "/orders", "", nil).Tag("GET orders").Post().Tag("POST orders")
 	routes := router.Routes()
 	for _, route := range routes {
-		if !assert.True(t, len(route.Tags()) > 0, route.method+" "+route.path+" should have a tag") {
+		if !assert.True(t, len(route.GetTags()) > 0, route.methods+" "+route.path+" should have a tag") {
 			continue
 		}
-		tag := route.Tags()[0].(string)
+		tag := route.GetTags()[0].(string)
 		switch route.path {
 		case "/posts":
 			assert.Equal(t, "posts", tag)
@@ -119,7 +119,7 @@ func TestRouteTag(t *testing.T) {
 		case "/comments":
 			assert.Equal(t, "comments", tag)
 		case "/orders":
-			if route.method == "GET" {
+			if route.methods == "GET" {
 				assert.Equal(t, "GET orders", tag)
 			} else {
 				assert.Equal(t, "POST orders", tag)
@@ -137,31 +137,31 @@ func TestRouteMethods(t *testing.T) {
 	}
 	group := newRouteGroup("/admin", router, nil, nil, nil, nil)
 
-	group.newRoute("GET", "/users").Get()
+	group.newRoute("GET", "http", "example.com", "/users", "", nil).Get()
 	assert.Equal(t, 1, router.stores["GET"].(*mockStore).count, "router.stores[GET].count =")
-	group.newRoute("GET", "/users").Post()
+	group.newRoute("GET", "http", "example.com", "/users", "", nil).Post()
 	assert.Equal(t, 1, router.stores["POST"].(*mockStore).count, "router.stores[POST].count =")
-	group.newRoute("GET", "/users").Patch()
+	group.newRoute("GET", "http", "example.com", "/users", "", nil).Patch()
 	assert.Equal(t, 1, router.stores["PATCH"].(*mockStore).count, "router.stores[PATCH].count =")
-	group.newRoute("GET", "/users").Put()
+	group.newRoute("GET", "http", "example.com", "/users", "", nil).Put()
 	assert.Equal(t, 1, router.stores["PUT"].(*mockStore).count, "router.stores[PUT].count =")
-	group.newRoute("GET", "/users").Delete()
+	group.newRoute("GET", "http", "example.com", "/users", "", nil).Delete()
 	assert.Equal(t, 1, router.stores["DELETE"].(*mockStore).count, "router.stores[DELETE].count =")
-	group.newRoute("GET", "/users").Connect()
+	group.newRoute("GET", "http", "example.com", "/users", "", nil).Connect()
 	assert.Equal(t, 1, router.stores["CONNECT"].(*mockStore).count, "router.stores[CONNECT].count =")
-	group.newRoute("GET", "/users").Head()
+	group.newRoute("GET", "http", "example.com", "/users", "", nil).Head()
 	assert.Equal(t, 1, router.stores["HEAD"].(*mockStore).count, "router.stores[HEAD].count =")
-	group.newRoute("GET", "/users").Options()
+	group.newRoute("GET", "http", "example.com", "/users", "", nil).Options()
 	assert.Equal(t, 1, router.stores["OPTIONS"].(*mockStore).count, "router.stores[OPTIONS].count =")
-	group.newRoute("GET", "/users").Trace()
+	group.newRoute("GET", "http", "example.com", "/users", "", nil).Trace()
 	assert.Equal(t, 1, router.stores["TRACE"].(*mockStore).count, "router.stores[TRACE].count =")
 
-	group.newRoute("GET", "/posts").To("GET,POST")
+	group.newRoute("GET", "http", "example.com", "/posts", "", nil).To("GET,POST")
 	assert.Equal(t, 2, router.stores["GET"].(*mockStore).count, "router.stores[GET].count =")
 	assert.Equal(t, 2, router.stores["POST"].(*mockStore).count, "router.stores[POST].count =")
 	assert.Equal(t, 1, router.stores["PUT"].(*mockStore).count, "router.stores[PUT].count =")
 
-	group.newRoute("GET", "/posts").To("POST")
+	group.newRoute("GET", "http", "example.com", "/posts", "", nil).To("POST")
 	assert.Equal(t, 2, router.stores["GET"].(*mockStore).count, "router.stores[GET].count =")
 	assert.Equal(t, 3, router.stores["POST"].(*mockStore).count, "router.stores[POST].count =")
 	assert.Equal(t, 1, router.stores["PUT"].(*mockStore).count, "router.stores[PUT].count =")
@@ -169,42 +169,48 @@ func TestRouteMethods(t *testing.T) {
 
 func TestBuildURLTemplate(t *testing.T) {
 	tests := []struct {
-		path, expected string
+		methods  string
+		schemes  string
+		hosts    string
+		path     string
+		query    string
+		headers  map[string]string
+		expected string
 	}{
-		{"", ""},
-		{"/users", "/users"},
-		{"<id>", "<id>"},
-		{"<id", "<id"},
-		{"/users/<id>", "/users/<id>"},
-		{"/users/<id:\\d+>", "/users/<id>"},
-		{"/users/<:\\d+>", "/users/<>"},
-		{"/users/<id>/xyz", "/users/<id>/xyz"},
-		{"/users/<id:\\d+>/xyz", "/users/<id>/xyz"},
-		{"/users/<id:\\d+>/<test>", "/users/<id>/<test>"},
-		{"/users/<id:\\d+>/<test>/", "/users/<id>/<test>/"},
-		{"/users/<id:\\d+><test>", "/users/<id><test>"},
-		{"/users/<id:\\d+><test>/", "/users/<id><test>/"},
+		{"GET", "http", "example.com", "", "", nil, "GET http://example.com"},
+		{"GET", "http", "example.com", "/users", "", nil, "GET http://example.com/users"},
+		{"GET", "http", "example.com", "<id>", "", nil, "GET http://example.com<id>"},
+		{"GET", "http", "example.com", "<id", "", nil, "GET http://example.com<id"},
+		{"GET", "http", "example.com", "/users/<id>", "", nil, "GET http://example.com/users/<id>"},
+		{"GET", "http", "example.com", "/users/<id:\\d+>", "", nil, "GET http://example.com/users/<id>"},
+		{"GET", "http", "example.com", "/users/<:\\d+>", "", nil, "GET http://example.com/users/<>"},
+		{"GET", "http", "example.com", "/users/<id>/xyz", "", nil, "GET http://example.com/users/<id>/xyz"},
+		{"GET", "http", "example.com", "/users/<id:\\d+>/xyz", "", nil, "GET http://example.com/users/<id>/xyz"},
+		{"GET", "http", "example.com", "/users/<id:\\d+>/<test>", "", nil, "GET http://example.com/users/<id>/<test>"},
+		{"GET", "http", "example.com", "/users/<id:\\d+>/<test>/", "", nil, "GET http://example.com/users/<id>/<test>/"},
+		{"GET", "http", "example.com", "/users/<id:\\d+><test>", "", nil, "GET http://example.com/users/<id><test>"},
+		{"GET", "http", "example.com", "/users/<id:\\d+><test>/", "", nil, "GET http://example.com/users/<id><test>/"},
 	}
 	for _, test := range tests {
-		actual := buildURLTemplate(test.path)
+		actual := buildURLTemplate(test.methods, test.schemes, test.hosts, test.path, test.query, test.headers)
 		assert.Equal(t, test.expected, actual, "buildURLTemplate("+test.path+") =")
 	}
 }
 
 func TestRouteString(t *testing.T) {
 	router := New(context.Background())
-	router.Get("/users/<id>")
-	router.To("GET,POST", "/users/<id>/profile")
-	group := router.Group("/admin", nil, nil)
-	group.Post("/users")
+	router.Get("http", "example.com", "/users/<id>", "", nil)
+	router.To("GET,POST", "http", "example.com", "/users/<id>/profile", "", nil)
+	group := router.Group("/admin")
+	group.Post("http", "example.com", "/users", "", nil)
 	s := ""
 	for _, route := range router.Routes() {
 		s += fmt.Sprintln(route)
 	}
 
-	assert.Equal(t, `GET /users/<id>
-GET /users/<id>/profile
-POST /users/<id>/profile
-POST /admin/users
+	assert.Equal(t, `GET http://example.com/users/<id>
+GET http://example.com/users/<id>/profile
+POST http://example.com/users/<id>/profile
+POST http://example.com/admin/users
 `, s)
 }

@@ -235,10 +235,11 @@ func (r *Router) addRoute(route *Route, handlers []Handler) {
 
 	r.routes = append(r.routes, route)
 
-	store := r.stores[route.method]
+	key := route.methods + " " + route.schemes + "://" + route.hosts
+	store := r.stores[key]
 	if store == nil {
 		store = newStore()
-		r.stores[route.method] = store
+		r.stores[key] = store
 	}
 
 	// an asterisk at the end matches any number of characters
