@@ -51,7 +51,9 @@ func Recovery(logf LogFunc, errorf ...ConvertErrorFunc) routing.Handler {
 			if len(errorf) > 0 {
 				err = errorf[0](c, err)
 			}
-			writeError(c, err)
+			if err != nil {
+				writeError(c, err)
+			}
 			c.Abort()
 		}
 		return nil
