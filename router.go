@@ -6,13 +6,11 @@
 package routing
 
 import (
-	"context"
 	"net/http"
 	"net/url"
 	"sort"
 	"strings"
 	"sync"
-	"time"
 )
 
 type (
@@ -31,11 +29,6 @@ type (
 		maxParams           int
 		notFound            []Handler
 		notFoundHandlers    []Handler
-
-		CancelHandlers  []Handler
-		TimeoutHandlers []Handler
-		TimeoutDuration time.Duration
-		Context         context.Context
 	}
 
 	// routeStore stores route paths and the corresponding handlers.
@@ -60,16 +53,13 @@ var Methods = []string{
 }
 
 // New creates a new Router object.
-func New(ctx context.Context) *Router {
+func New() *Router {
 	r := &Router{
-		namedRoutes:     make(map[string]*Route),
-		stores:          make(map[string]routeStore),
-		TimeoutDuration: 0 * time.Second,
-		TimeoutHandlers: []Handler{TimeoutHandler},
-		CancelHandlers:  []Handler{CancelHandler},
-		Context:         ctx,
+		namedRoutes: make(map[string]*Route),
+		stores:      make(map[string]routeStore),
 	}
-	r.RouteGroup = *newRouteGroup("", r, make([]Handler, 0), make([]Handler, 0), make([]Handler, 0), make([]Handler, 0))
+	r.RouteGroup = *newRouteGroup("", r, make([]Handler, 0),
+		make([]Handler, 0), make([]Handler, 0), make([]Handler, 0), make([]Handler, 0))
 	r.NotFound(MethodNotAllowedHandler, NotFoundHandler)
 	r.pool.New = func() interface{} {
 		return &Context{
@@ -85,15 +75,6 @@ func New(ctx context.Context) *Router {
 func (r *Router) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	c := r.pool.Get().(*Context)
 	c.init(res, req)
-	// timeout & cancel
-	if r.TimeoutDuration > 0*time.Second {
-		c.Context, c.CancelFunc = context.WithTimeout(c.Context, r.TimeoutDuration)
-		defer c.CancelFunc()
-	} else {
-		c.Context, c.CancelFunc = context.WithCancel(c.Context)
-		defer c.CancelFunc()
-	}
-	c.Request = c.Request.WithContext(c.Context)
 	if r.UseEscapedPath {
 		c.handlers, c.pnames = r.find(req.Method, r.normalizeRequestPath(req.URL.EscapedPath()), c.pvalues)
 		for i, v := range c.pvalues {
@@ -102,48 +83,13 @@ func (r *Router) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	} else {
 		c.handlers, c.pnames = r.find(req.Method, r.normalizeRequestPath(req.URL.Path), c.pvalues)
 	}
-	var errChan chan error = make(chan error, 1)
-	go func(ctx *Context, errChan chan error) {
-		errChan <- c.Next()
-		r.pool.Put(c)
-	}(c, errChan)
-	select {
-	case <-c.Context.Done():
-		c.Abort()
-		switch c.Context.Err() {
-		case context.DeadlineExceeded:
-			timeoutIndex := 0
-			for n := len(c.router.TimeoutHandlers); timeoutIndex < n; timeoutIndex++ {
-				err := c.router.TimeoutHandlers[timeoutIndex](c)
-				if err != nil {
-					if !c.Wrote {
-						r.handleError(c, err)
-						c.Wrote = true
-					}
-					break
-				}
-			}
-		case context.Canceled:
-			cancelIndex := 0
-			for n := len(c.router.CancelHandlers); cancelIndex < n; cancelIndex++ {
-				err := c.router.CancelHandlers[cancelIndex](c)
-				if err != nil {
-					if !c.Wrote {
-						r.handleError(c, err)
-						c.Wrote = true
-					}
-					break
-				}
-			}
-		}
-	case err := <-errChan:
-		if err != nil {
-			if !c.Wrote {
-				r.handleError(c, err)
-				c.Wrote = true
-			}
-		}
+	c.handlers = combineHandlers(r.RouteGroup.startupHandlers, r.RouteGroup.anteriorHandlers, c.handlers, r.RouteGroup.posteriorHandlers, r.RouteGroup.shutdownHandlers)
+	if err := c.Next(); err != nil {
+		r.handleError(c, err)
 	}
+	c.Context = nil
+	r.pool.Put(c)
+	return
 }
 
 // Route returns the named route.
@@ -169,18 +115,8 @@ func (r *Router) AppendShutdownHandler(handlers ...Handler) *Router {
 	return r
 }
 
-func (r *Router) PrependAnteriorHandler(handlers ...Handler) *Router {
-	r.RouteGroup.PrependAnteriorHandler(handlers...)
-	return r
-}
-
 func (r *Router) AppendAnteriorHandler(handlers ...Handler) *Router {
 	r.RouteGroup.AppendAnteriorHandler(handlers...)
-	return r
-}
-
-func (r *Router) PrependPosteriorHandler(handlers ...Handler) *Router {
-	r.RouteGroup.PrependPosteriorHandler(handlers...)
 	return r
 }
 
@@ -189,24 +125,17 @@ func (r *Router) AppendPosteriorHandler(handlers ...Handler) *Router {
 	return r
 }
 
+// Use appends the specified handlers to the router and shares them with all routes.
+func (r *Router) Use(handlers ...Handler) {
+	r.RouteGroup.Use(handlers...)
+	r.notFoundHandlers = combineHandlers(r.handlers, r.notFound)
+}
+
 // NotFound specifies the handlers that should be invoked when the router cannot find any route matching a request.
 // Note that the handlers registered via Use will be invoked first in this case.
 func (r *Router) NotFound(handlers ...Handler) *Router {
 	r.notFound = handlers
-	r.notFoundHandlers = combineHandlers(r.startupHandlers, r.notFound)
-	return r
-}
-
-func (r *Router) Timeout(timeoutDuration time.Duration, handlers ...Handler) *Router {
-	r.TimeoutDuration = timeoutDuration
-	if len(handlers) > 0 {
-		r.TimeoutHandlers = handlers
-	}
-	return r
-}
-
-func (r *Router) Cancel(handlers ...Handler) *Router {
-	r.CancelHandlers = handlers
+	r.notFoundHandlers = combineHandlers(r.handlers, r.notFound)
 	return r
 }
 
@@ -285,17 +214,9 @@ func (r *Router) normalizeRequestPath(path string) string {
 	return path
 }
 
-// TimeoutHandler returns a 408 HTTP error indicating a request execute timeout.
-func TimeoutHandler(c *Context) error {
-	return NewHTTPError(http.StatusRequestTimeout, http.StatusText(http.StatusRequestTimeout))
-}
-func CancelHandler(c *Context) error {
-	return NewHTTPError(http.StatusNoContent, http.StatusText(http.StatusNoContent))
-}
-
 // NotFoundHandler returns a 404 HTTP error indicating a request has no matching route.
 func NotFoundHandler(c *Context) error {
-	return NewHTTPError(http.StatusNotFound, http.StatusText(http.StatusNotFound))
+	return NewHTTPError(http.StatusNotFound)
 }
 
 // MethodNotAllowedHandler handles the situation when a request has matching route without matching HTTP method.

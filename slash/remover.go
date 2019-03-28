@@ -45,6 +45,6 @@ func Remover(status int) routing.Handler {
 			http.Redirect(c.ResponseWriter, c.Request, urlStr, status)
 			c.Abort()
 		}
-		return  nil
+		return nil
 	}
 }

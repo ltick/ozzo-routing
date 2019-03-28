@@ -36,12 +36,15 @@ func ErrorHandler(logf LogFunc, errorf ...ConvertErrorFunc) routing.Handler {
 		if err == nil {
 			return nil
 		}
+
 		if logf != nil {
 			logf("%v", err)
 		}
+
 		if len(errorf) > 0 {
 			err = errorf[0](c, err)
 		}
+
 		if err != nil {
 			writeError(c, err)
 		}
@@ -55,13 +58,10 @@ func ErrorHandler(logf LogFunc, errorf ...ConvertErrorFunc) routing.Handler {
 // If the error implements HTTPError, it will set the HTTP status as the result of the StatusCode() call of the error.
 // Otherwise, the HTTP status will be set as http.StatusInternalServerError.
 func writeError(c *routing.Context, err error) {
-	if !c.Wrote {
-		c.Wrote = true
-		if httpError, ok := err.(routing.HTTPError); ok {
-			c.ResponseWriter.WriteHeader(httpError.StatusCode())
-		} else {
-			c.ResponseWriter.WriteHeader(http.StatusInternalServerError)
-		}
-		c.Write(err)
+	if httpError, ok := err.(routing.HTTPError); ok {
+		c.ResponseWriter.WriteHeader(httpError.StatusCode())
+	} else {
+		c.ResponseWriter.WriteHeader(http.StatusInternalServerError)
 	}
+	c.Write(err)
 }

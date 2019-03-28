@@ -79,7 +79,7 @@ func (p *Proxy) MatchProxy(r *http.Request) bool {
 func ProxyHandler(proxys []*Proxy) routing.Handler {
 	return func(c *routing.Context) error {
 		for _, p := range proxys {
-			match  := p.MatchProxy(c.Request)
+			match := p.MatchProxy(c.Request)
 			if match {
 				director := func(req *http.Request) {
 					req.URL = p.UpstreamURL

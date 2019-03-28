@@ -139,7 +139,7 @@ func testNextHandler(tag string) Handler {
 		fmt.Fprintf(c.ResponseWriter, "<%v>", tag)
 		err := c.Next()
 		fmt.Fprintf(c.ResponseWriter, "</%v>", tag)
-		return  err
+		return err
 	}
 }
 
@@ -147,27 +147,27 @@ func testAbortHandler(tag string) Handler {
 	return func(c *Context) error {
 		fmt.Fprintf(c.ResponseWriter, "<%v/>", tag)
 		c.Abort()
-		return  nil
+		return nil
 	}
 }
 
 func testErrorHandler(tag string) Handler {
 	return func(c *Context) error {
 		fmt.Fprintf(c.ResponseWriter, "<%v/>", tag)
-		return  errors.New("error:" + tag)
+		return errors.New("error:" + tag)
 	}
 }
 
 func testTimeoutHandler() Handler {
 	return func(c *Context) error {
 		time.Sleep(2 * time.Second)
-		return  nil
+		return nil
 	}
 }
 
 func testNormalHandler(tag string) Handler {
 	return func(c *Context) error {
 		fmt.Fprintf(c.ResponseWriter, "<%v/>", tag)
-		return  nil
+		return nil
 	}
 }

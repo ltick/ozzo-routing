@@ -1,8 +1,8 @@
 package routing
 
 import (
+	"fmt"
 	"net/http"
-    "fmt"
 )
 
 // DataWriter is used by Context.Write() to write arbitrary data into an HTTP response.
@@ -22,17 +22,18 @@ type dataWriter struct{}
 func (w *dataWriter) SetHeader(res http.ResponseWriter) {}
 
 func (w *dataWriter) Write(res http.ResponseWriter, data interface{}) (n int, err error) {
+	var bytes []byte
 	switch data.(type) {
 	case []byte:
-		dataByte := data.([]byte)
-		n, err = res.Write(dataByte)
+		bytes = data.([]byte)
 	case string:
-		dataByte := []byte(data.(string))
-		n, err = res.Write(dataByte)
+		bytes = []byte(data.(string))
 	default:
 		if data != nil {
 			n, err = fmt.Fprint(res, data)
+			return
 		}
 	}
-	return n, err
+	n, err = res.Write(bytes)
+	return
 }

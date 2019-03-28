@@ -13,6 +13,8 @@ import (
 // Context represents the contextual data and environment while processing an incoming HTTP request.
 type Context struct {
 	context.Context
+	Wrote bool
+
 	Request        *http.Request       // the current request
 	ResponseWriter http.ResponseWriter // the response writer
 	router         *Router
@@ -22,26 +24,14 @@ type Context struct {
 	index          int                    // the index of the currently executing handler in handlers
 	handlers       []Handler              // the handlers associated with the current route
 	writer         DataWriter
-	Wrote          bool
-	WroteHeader          bool
-
-	CancelFunc context.CancelFunc
 }
 
 // NewContext creates a new Context object with the given response, request, and the handlers.
 // This method is primarily provided for writing unit tests for handlers.
 func NewContext(res http.ResponseWriter, req *http.Request, handlers ...Handler) *Context {
-	c := &Context{
-		Context:  context.Background(),
-		handlers: handlers,
-	}
+	c := &Context{handlers: handlers}
 	c.init(res, req)
 	return c
-}
-
-// Router returns the Router that is handling the incoming HTTP request.
-func (c *Context) Router() *Router {
-	return c.router
 }
 
 func (c *Context) Params() []string {
@@ -54,6 +44,42 @@ func (c *Context) ParamMap() map[string]string {
 		paramMap[n] = c.pvalues[i]
 	}
 	return paramMap
+}
+
+func (c *Context) WriteHeader(status int) {
+	c.ResponseWriter.WriteHeader(status)
+}
+
+func (c *Context) GetClientIP() string {
+	ip := c.GetClientRealIP()
+	if ip == "" {
+		ip = c.GetClientRemoteIP()
+	}
+	return ip
+}
+
+func (c *Context) GetClientRealIP() string {
+	ip := c.Request.Header.Get("X-Real-IP")
+	if ip == "" {
+		ip = c.Request.Header.Get("X-Forwarded-For")
+	}
+	if colon := strings.LastIndex(ip, ":"); colon != -1 {
+		ip = ip[:colon]
+	}
+	return ip
+}
+
+func (c *Context) GetClientRemoteIP() string {
+	ip := c.Request.RemoteAddr
+	if colon := strings.LastIndex(ip, ":"); colon != -1 {
+		ip = ip[:colon]
+	}
+	return ip
+}
+
+// Router returns the Router that is handling the incoming HTTP request.
+func (c *Context) Router() *Router {
+	return c.router
 }
 
 // Param returns the named parameter value that is found in the URL path matching the current route.
@@ -146,10 +172,10 @@ func (c *Context) Next() (err error) {
 	c.index++
 	for n := len(c.handlers); c.index < n; c.index++ {
 		if err = c.handlers[c.index](c); err != nil {
-			return err
+			return
 		}
 	}
-	return nil
+	return
 }
 
 // Abort skips the rest of the handlers associated with the current route.
@@ -157,11 +183,6 @@ func (c *Context) Next() (err error) {
 // If a handler wants to indicate an error condition, it should simply return the error without calling Abort.
 func (c *Context) Abort() {
 	c.index = len(c.handlers)
-}
-
-// Jump skips the number of the handlers associated with the current route.
-func (c *Context) Jump(num int) {
-	c.index = c.index + num
 }
 
 // URL creates a URL using the named route and the parameter values.
@@ -196,51 +217,14 @@ func (c *Context) Read(data interface{}) error {
 // The method calls the data writer set via SetDataWriter() to do the actual writing.
 // By default, the DefaultDataWriter will be used.
 func (c *Context) Write(data interface{}) error {
-	if !c.Wrote {
-		_, err := c.writer.Write(c.ResponseWriter, data)
-		c.Wrote = true
-		return err
-	}
-	return nil
-}
-func (c *Context) WriteHeader(status int) {
-	if !c.WroteHeader {
-		c.ResponseWriter.WriteHeader(status)
-		c.WroteHeader = true
-	}
+	_, err := c.writer.Write(c.ResponseWriter, data)
+	return err
 }
 
 // SetDataWriter sets the data writer that will be used by Write().
 func (c *Context) SetDataWriter(writer DataWriter) {
 	c.writer = writer
 	writer.SetHeader(c.ResponseWriter)
-}
-
-func (c *Context) GetClientIP() string {
-	ip := c.GetClientRealIP()
-	if ip == "" {
-		ip = c.GetClientRemoteIP()
-	}
-	return ip
-}
-
-func (c *Context) GetClientRealIP() string {
-	ip := c.Request.Header.Get("X-Real-IP")
-	if ip == "" {
-		ip = c.Request.Header.Get("X-Forwarded-For")
-	}
-	if colon := strings.LastIndex(ip, ":"); colon != -1 {
-		ip = ip[:colon]
-	}
-	return ip
-}
-
-func (c *Context) GetClientRemoteIP() string {
-	ip := c.Request.RemoteAddr
-	if colon := strings.LastIndex(ip, ":"); colon != -1 {
-		ip = ip[:colon]
-	}
-	return ip
 }
 
 // init sets the request and response of the context and resets all other properties.
@@ -250,12 +234,8 @@ func (c *Context) init(responseWriter http.ResponseWriter, request *http.Request
 	c.data = nil
 	c.index = -1
 	c.writer = DefaultDataWriter
-	c.Wrote = false
-	if c.router != nil && c.router.Context != nil {
-		c.Context = c.router.Context
-	} else {
-		c.Context = context.Background()
-	}
+
+	c.Context = context.Background()
 }
 
 func getContentType(req *http.Request) string {
