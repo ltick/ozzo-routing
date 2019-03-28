@@ -23,19 +23,19 @@ func Example() {
 	)
 
 	// serve RESTful APIs
-	api := router.Group("/api", nil,nil)
+	api := router.Group("/api", nil, nil)
 	api.AppendStartupHandler(
 		// these handlers are shared by the routes in the api group only
 		content.TypeNegotiator(content.JSON, content.XML),
 	)
 	api.Get("/users", func(c *routing.Context) error {
-		return  c.Write("user list")
+		return c.Write("user list")
 	})
 	api.Post("/users", func(c *routing.Context) error {
-		return  c.Write("create a new user")
+		return c.Write("create a new user")
 	})
 	api.Put(`/users/<id:\d+>`, func(c *routing.Context) error {
-		return  c.Write("update user " + c.Param("id"))
+		return c.Write("update user " + c.Param("id"))
 	})
 
 	// serve index file

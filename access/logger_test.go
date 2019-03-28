@@ -79,5 +79,5 @@ func getLogger(buf *bytes.Buffer) LogFunc {
 }
 
 func handler1(c *routing.Context) error {
-	return  errors.New("abc")
+	return errors.New("abc")
 }
