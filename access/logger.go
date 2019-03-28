@@ -8,6 +8,7 @@ package access
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/ltick/tick-routing"
@@ -23,7 +24,7 @@ type LogFunc func(format string, a ...interface{})
 // through this middleware and does whatever log writing it wants with that
 // information.
 // LogWriterFunc should be thread safe.
-type LogWriterFunc func(c *routing.Context, res *LogResponseWriter, elapsed float64)
+type LogWriterFunc func(req *http.Request, res *LogResponseWriter, elapsed float64)
 
 // CustomLogger returns a handler that calls the LogWriterFunc passed to it for every request.
 // The LogWriterFunc is provided with the http.Request and LogResponseWriter objects for the
@@ -46,15 +47,16 @@ func CustomLogger(loggerFunc LogWriterFunc) routing.Handler {
 	return func(c *routing.Context) error {
 		startTime := time.Now()
 
+		req := c.Request
 		rw := &LogResponseWriter{c.ResponseWriter, http.StatusOK, 0}
 		c.ResponseWriter = rw
 
 		err := c.Next()
 
 		elapsed := float64(time.Now().Sub(startTime).Nanoseconds()) / 1e6
-		loggerFunc(c, rw, elapsed)
+		loggerFunc(req, rw, elapsed)
 
-		return  err
+		return err
 	}
 }
 
@@ -71,9 +73,9 @@ func CustomLogger(loggerFunc LogWriterFunc) routing.Handler {
 //     r := routing.New()
 //     r.Use(access.Logger(log.Printf))
 func Logger(log LogFunc) routing.Handler {
-	var logger = func(c *routing.Context, rw *LogResponseWriter, elapsed float64) {
-		clientIP := c.GetClientIP()
-		requestLine := fmt.Sprintf("%s %s %s", c.Request.Method, c.Request.URL.String(), c.Request.Proto)
+	var logger = func(req *http.Request, rw *LogResponseWriter, elapsed float64) {
+		clientIP := GetClientIP(req)
+		requestLine := fmt.Sprintf("%s %s %s", req.Method, req.URL.String(), req.Proto)
 		log(`[%s] [%.3fms] %s %d %d`, clientIP, elapsed, requestLine, rw.Status, rw.BytesWritten)
 	}
 	return CustomLogger(logger)
@@ -95,4 +97,18 @@ func (r *LogResponseWriter) Write(p []byte) (int, error) {
 func (r *LogResponseWriter) WriteHeader(status int) {
 	r.Status = status
 	r.ResponseWriter.WriteHeader(status)
+}
+
+func GetClientIP(req *http.Request) string {
+	ip := req.Header.Get("X-Real-IP")
+	if ip == "" {
+		ip = req.Header.Get("X-Forwarded-For")
+		if ip == "" {
+			ip = req.RemoteAddr
+		}
+	}
+	if colon := strings.LastIndex(ip, ":"); colon != -1 {
+		ip = ip[:colon]
+	}
+	return ip
 }

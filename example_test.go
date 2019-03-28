@@ -13,7 +13,7 @@ import (
 )
 
 func Example() {
-	router := routing.New(context.Background())
+	router := routing.New()
 
 	router.AppendStartupHandler(
 		// all these handlers are shared by every route
@@ -23,7 +23,7 @@ func Example() {
 	)
 
 	// serve RESTful APIs
-	api := router.Group("/api")
+	api := router.Group("/api", nil, nil)
 	api.AppendStartupHandler(
 		// these handlers are shared by the routes in the api group only
 		content.TypeNegotiator(content.JSON, content.XML),

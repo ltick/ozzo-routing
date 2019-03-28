@@ -5,9 +5,7 @@
 // Package fault provides a panic and error handler for the ozzo routing package.
 package fault
 
-import (
-	"github.com/ltick/tick-routing"
-)
+import "github.com/ltick/tick-routing"
 
 type (
 	// LogFunc logs a message using the given format and optional arguments.
@@ -43,8 +41,7 @@ type (
 func Recovery(logf LogFunc, errorf ...ConvertErrorFunc) routing.Handler {
 	handlePanic := PanicHandler(logf)
 	return func(c *routing.Context) error {
-		err := handlePanic(c)
-		if err != nil {
+		if err := handlePanic(c); err != nil {
 			if logf != nil {
 				logf("%v", err)
 			}
