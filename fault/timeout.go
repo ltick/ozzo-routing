@@ -9,9 +9,8 @@ import (
 )
 
 func TimeoutHandler(timeoutDuration time.Duration) routing.Handler {
-	return func(c *routing.Context) error {
+	return func(c *routing.Context) (err error) {
 		var (
-			err     error
 			errChan chan error      = make(chan error, 1)
 			ctx     context.Context = context.Background()
 		)
@@ -24,13 +23,10 @@ func TimeoutHandler(timeoutDuration time.Duration) routing.Handler {
 		select {
 		case <-ctx.Done():
 			c.Abort()
-			err = routing.NewHTTPError(http.StatusRequestTimeout)
+			writeError(c, routing.NewHTTPError(http.StatusRequestTimeout))
+			return nil
 		case err = <-errChan:
+			return
 		}
-		// TODO 根据src/net/http/client.go细化超时取消流程
-		if err != nil {
-			writeError(c, err)
-		}
-		return nil
 	}
 }
