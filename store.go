@@ -251,8 +251,12 @@ repeat:
 	} else {
 		// param node matching non-"/" characters
 		i, kl := 0, len(key)
+		var slashes bool = false
 		for ; i < kl; i++ {
-			if key[i] == '/' {
+			if key[i] != '/' {
+				slashes = true
+			}
+			if slashes && key[i] == '/' {
 				pvalues[n.pindex] = key[0:i]
 				key = key[i:]
 				break
