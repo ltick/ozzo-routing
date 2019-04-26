@@ -20,45 +20,11 @@ var (
 )
 
 type Proxy struct {
-	MethodRule     string
-	HostRule       string
-	UriRule        string
-	UpstreamURL    *url.URL
-	UpstreamHeader *http.Header
-}
-
-func (p *Proxy) MatchProxy(r *http.Request) bool {
-	// Host
-	host := r.Host
-	if host == "" {
-		host = r.URL.Host
-	}
-	var hostMatch, methodMatch, uriMatch bool
-	if strings.Compare(host, p.HostRule) == 0 {
-		hostMatch = true
-	} else if regexp.MustCompile(p.HostRule).Match([]byte(host)) {
-		hostMatch = true
-	}
-	if hostMatch {
-		// Method
-		if strings.Compare(r.Method, p.MethodRule) == 0 {
-			methodMatch = true
-		} else if regexp.MustCompile(p.MethodRule).Match([]byte(r.Method)) {
-			methodMatch = true
-		}
-		if methodMatch {
-			// Uri
-			if strings.Compare(r.URL.RequestURI(), p.UriRule) == 0 {
-				uriMatch = true
-			} else if regexp.MustCompile(p.UriRule).Match([]byte(r.URL.RequestURI())) {
-				uriMatch = true
-			}
-			if uriMatch {
-				return true
-			}
-		}
-	}
-	return false
+	Host           []string
+	Group          string
+	Path           string
+	Upstream       string
+	UpstreamHeader http.Header
 }
 
 // ProxyHandler returns a handler that proxy config for every request.
@@ -79,35 +45,51 @@ func (p *Proxy) MatchProxy(r *http.Request) bool {
 func ProxyHandler(proxys []*Proxy) routing.Handler {
 	return func(c *routing.Context) error {
 		for _, p := range proxys {
-			match := p.MatchProxy(c.Request)
-			if match {
-				director := func(req *http.Request) {
-					req.URL = p.UpstreamURL
-					req.Header = *p.UpstreamHeader
-				}
-				proxy := &httputil.ReverseProxy{Director: director}
-				proxy.ServeHTTP(c.ResponseWriter, c.Request)
-				c.Abort()
-				return nil
+			captures := make(map[string]string)
+			r := regexp.MustCompile("<:(\\w+)>")
+			match := r.FindStringSubmatch(p.Upstream)
+			if match == nil {
+				return errors.New("ltick: upstream not match")
 			}
-		}
-		return nil
-	}
-}
-
-func HTTPProxyHandler(proxys []*Proxy) routing.Handler {
-	return func(c *routing.Context) error {
-		for _, p := range proxys {
-			match := p.MatchProxy(c.Request)
-			if match {
-				director := func(req *http.Request) {
-					req.URL = p.UpstreamURL
-					req.Header = *p.UpstreamHeader
+			for i, name := range r.SubexpNames() {
+				if i == 0 || name == "" {
+					continue
 				}
-				proxy := &httputil.ReverseProxy{Director: director}
-				proxy.ServeHTTP(c.ResponseWriter, c.Request)
-				c.Abort()
-				return nil
+				if name != "group" && name != "path" && name != "fragment" && name != "query" {
+					captures[name] = c.Param(name)
+				}
+			}
+			captures["group"] = p.Group
+			path := c.Request.URL.Path
+			if path == "" {
+				path = c.Request.URL.RawPath
+			}
+			captures["fragment"] = c.Request.URL.Fragment
+			captures["query"] = c.Request.URL.RawQuery
+			captures["path"] = strings.TrimLeft(path, p.Group)
+			captures["group"] = p.Group
+			if len(captures) != 0 {
+				upstream := p.Upstream
+				//拼接配置文件指定中的uri，$符号分割
+				for name, capture := range captures {
+					upstream = strings.Replace(upstream, "<:"+name+">", capture, -1)
+				}
+				upstreamURL, err := url.Parse(upstream)
+				if err != nil {
+					return err
+				}
+				if upstreamURL != nil {
+					director := func(req *http.Request) {
+						req.URL.Scheme = upstreamURL.Scheme
+						req.URL.Host = upstreamURL.Host
+						req.Host = upstreamURL.Host
+						req.RequestURI = upstreamURL.RequestURI()
+						req.Header = p.UpstreamHeader
+					}
+					proxy := &httputil.ReverseProxy{Director: director}
+					proxy.ServeHTTP(c.ResponseWriter, c.Request)
+					c.Abort()
+				}
 			}
 		}
 		return nil

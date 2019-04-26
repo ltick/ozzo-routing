@@ -87,7 +87,6 @@ func (r *Router) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	if err := c.Next(); err != nil {
 		r.handleError(c, err)
 	}
-	c.Context = nil
 	r.pool.Put(c)
 	return
 }

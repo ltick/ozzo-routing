@@ -5,14 +5,12 @@
 package routing
 
 import (
-	"context"
 	"net/http"
 	"strings"
 )
 
 // Context represents the contextual data and environment while processing an incoming HTTP request.
 type Context struct {
-	context.Context
 	Wrote bool
 
 	Request        *http.Request       // the current request
@@ -234,8 +232,6 @@ func (c *Context) init(responseWriter http.ResponseWriter, request *http.Request
 	c.data = nil
 	c.index = -1
 	c.writer = DefaultDataWriter
-
-	c.Context = context.Background()
 }
 
 func getContentType(req *http.Request) string {
